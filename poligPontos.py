@@ -16,7 +16,7 @@ ax, ay, az = 0, 0, 0
 def mesh():
     glPushMatrix()
     glTranslate(0.0,0.0,az)
-    glRotatef(ax,1.0,0.0,0.0)
+    glRotatef(a,1.0,0.0,0.0)
     glRotatef(ay,0.0,1.0,0.0)
 
     
