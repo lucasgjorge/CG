@@ -1,10 +1,12 @@
 import OpenGL.GLUT as GLUT
 import OpenGL.GLU as GLU
 import OpenGL.GL as GL
-import png
+from png import Reader
 from sys import argv
 from math import sin, cos, pi
 
+# Window Name
+window_name = "Piramide Texturizada"
 
 # Rotation vars
 left_button = False
@@ -14,35 +16,31 @@ delta_alpha = 0.5
 
 
 
+# Colors
 
-background_color = (0.255, 0.250, 0.250,1)
+# Background Color RGBA
+background_color = (0.184, 0.211, 0.250, 1)
 
 # Figure vars
-n = 50
-m = 50
-raio = 2
 
+vertices = 3
+raios = 2
+prisma_altura = 3
+modificador_piramide = 0.5
 
-def f(i,j):
-    theta = ( (pi * i) / (n -1) ) - (pi / 2)
-    phi = 2*pi*j/(m-1)
-    
-    x = raio * cos(theta) * cos(phi)
-    y = raio * sin(theta)
-    z = raio * cos(theta) * sin(phi)
-    
-    s = (phi/(2*pi))
-    t = ((theta + (pi/2))/pi)
-    
-    return x,y,z,s,t
+# Texture vars
 
-# texture = []
+texture = []
 
-def load_textures():
+# Texture Functions
+
+def loadTextures():
     global texture
     texture = GL.glGenTextures(2)
-    reader = png.Reader(filename='mapa.png')
-    w, h, pixels, metadata = reader.read_flat()
+
+    png_img = Reader(filename='textura.png')
+
+    w, h, pixels, metadata = png_img.read_flat()
 
     if(metadata['alpha']):
         modo = GL.GL_RGBA
@@ -61,29 +59,56 @@ def load_textures():
 
 def figure():
     
+
+    polygon_points = []
+    faces_angle = (2*pi)/vertices
+    
     GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)    
     GL.glLoadIdentity()    
     
     GL.glPushMatrix()
+    
+    GL.glTranslatef(0.0, 1.5, -10)
+    GL.glRotatef(90,1.0,0.0,0.0)
 
-    GL.glRotatef(alpha, 0.0, 1.0, 0.0)
-    GL.glRotatef(beta, 0.0, 0.0, 1.0)
+    
 
+    # Rotation
+    # X axis
+    GL.glRotatef(alpha, 0.0, 0.0, 1.0)
+    # Y axis
+    GL.glRotatef(beta, 0.0, 1.0, 0.0)
+
+    # Figure
     GL.glBindTexture(GL.GL_TEXTURE_2D, texture[0])
-    for i in range(n):
-        GL.glBegin(GL.GL_QUAD_STRIP)
-        for j in range(m):
-            
-            x, y, z, s, t = f(i,j)
-            GL.glTexCoord2f(s, t)
-            GL.glVertex3f(x,y,z)
 
-            x, y, z, s, t = f(i+1, j)
-            GL.glTexCoord2f(s, t)
-            GL.glVertex3f(x,y,z)
-        GL.glEnd()
+    # Bottom
+    GL.glBegin(GL.GL_POLYGON)
+    for i in range(vertices):
+        x = raios * cos(i*faces_angle)
+        y = raios * sin(i*faces_angle)
+        polygon_points += [ (x,y) ]
+        GL.glTexCoord2f(x, y); GL.glVertex3f(x,y,0.0)
+    GL.glEnd()
+
+    # Top
+    GL.glBegin(GL.GL_POLYGON)
+    for x,y in polygon_points:
+        GL.glTexCoord2f(x, y); GL.glVertex3f(modificador_piramide*x,modificador_piramide*y, prisma_altura)
+    GL.glEnd()
+
+    # Sides
+    GL.glBegin(GL.GL_QUADS)
+    for i in range(vertices):
+        GL.glTexCoord2f(0.0, 0.0); GL.glVertex3f(polygon_points[i][0],polygon_points[i][1],0)
+        GL.glTexCoord2f(0.0, 1.0); GL.glVertex3f(modificador_piramide*polygon_points[i][0],modificador_piramide*polygon_points[i][1],prisma_altura)
+
+        GL.glTexCoord2f(1.0, 1.0); GL.glVertex3f(modificador_piramide*polygon_points[(i+1)%vertices][0],modificador_piramide*polygon_points[(i+1)%vertices][1],prisma_altura)
+        GL.glTexCoord2f(1.0, 0.0); GL.glVertex3f(polygon_points[(i+1)%vertices][0],polygon_points[(i+1)%vertices][1],0)
+    GL.glEnd()
 
     GL.glPopMatrix()
+
     GLUT.glutSwapBuffers()
 
 
@@ -91,8 +116,12 @@ def draw():
     global alpha, left_button, right_button
 
     GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+
     figure()
+
+    # Auto-Rotation
     alpha = alpha + delta_alpha
+
     GLUT.glutSwapBuffers()
 
 
@@ -101,10 +130,15 @@ def timer(i):
     GLUT.glutTimerFunc(10, timer, 1)
 
 
+
+
 def main():    
     GLUT.glutInit(argv)
-    GLUT.glutInitDisplayMode(GLUT.GLUT_DOUBLE | GLUT.GLUT_RGBA | GLUT.GLUT_DEPTH | GLUT.GLUT_MULTISAMPLE)
+    GLUT.glutInitDisplayMode(
+        GLUT.GLUT_DOUBLE | GLUT.GLUT_RGBA | GLUT.GLUT_DEPTH | GLUT.GLUT_MULTISAMPLE
+    )
 
+    # Creating a screen with good resolution proportions
     screen_width = GLUT.glutGet(GLUT.GLUT_SCREEN_WIDTH)
     screen_height = GLUT.glutGet(GLUT.GLUT_SCREEN_HEIGHT)
 
@@ -112,13 +146,18 @@ def main():
     window_height = round(2 * screen_height / 3)
 
     GLUT.glutInitWindowSize(window_width, window_height)
-    GLUT.glutInitWindowPosition(round((screen_width - window_width) / 2), round((screen_height - window_height) / 2))
-    
-    GLUT.glutCreateWindow("Esfera Texturizada")
+    GLUT.glutInitWindowPosition(
+        round((screen_width - window_width) / 2), round((screen_height - window_height) / 2)
+    )
+    GLUT.glutCreateWindow(window_name)
 
+    # Drawing Function
     GLUT.glutDisplayFunc(draw)
 
-    load_textures()
+    # Input Functions
+    
+
+    loadTextures()
 
     GL.glEnable(GL.GL_MULTISAMPLE)
     GL.glEnable(GL.GL_DEPTH_TEST)
@@ -131,6 +170,7 @@ def main():
     GL.glShadeModel(GL.GL_SMOOTH)
     GL.glMatrixMode(GL.GL_PROJECTION)
 
+    # Pre-render camera positioning
     GLU.gluPerspective(-45, window_width / window_height, 0.1, 100.0)
     GL.glTranslatef(0.0, 0.0, -10)
 
@@ -138,10 +178,8 @@ def main():
 
     GLUT.glutTimerFunc(10, timer, 1)
     GLUT.glutMainLoop()
-    
+
 
 if(__name__ == '__main__'):
     main()
-
-
     
